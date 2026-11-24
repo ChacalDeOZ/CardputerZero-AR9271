@@ -10,6 +10,17 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
+echo "[*] 0. Checking prerequisites (firmware & iw)..."
+if [ ! -f /lib/firmware/ath9k_htc/htc_9271-1.4.0.fw ] && [ ! -f /usr/lib/firmware/ath9k_htc/htc_9271-1.4.0.fw ]; then
+  echo "[!] Warning: htc_9271-1.4.0.fw not found in /lib/firmware/ath9k_htc/ or /usr/lib/firmware/ath9k_htc/."
+  echo "[!] Please ensure the Atheros HTC firmware package (e.g. firmware-ath9k-htc or firmware-atheros) is installed."
+fi
+
+IW_BIN="$(command -v iw || echo /usr/sbin/iw)"
+if [ ! -x "$IW_BIN" ]; then
+  echo "[!] Warning: 'iw' binary not found. Please install the 'iw' package (sudo apt install iw)."
+fi
+
 echo "[*] 1. Configuring native dwc_otg driver in /boot/firmware/config.txt..."
 if grep -q "^dtoverlay=dwc2" /boot/firmware/config.txt 2>/dev/null; then
   sed -i "s/^dtoverlay=dwc2/#dtoverlay=dwc2/" /boot/firmware/config.txt
@@ -36,12 +47,24 @@ systemctl daemon-reload
 systemctl enable ext5v.service
 echo 255 > /sys/class/leds/ext_5v_out/brightness 2>/dev/null || true
 
-echo "[*] 3. Configuring ath9k_htc module parameters..."
+echo "[*] 3. Configuring ath9k_htc module parameters & disabling hub Ethernet drivers..."
 cat << 'EOF' > /etc/modprobe.d/ath9k_htc.conf
 options ath9k_htc ps_enable=0
 EOF
 
-echo "[*] 4. Configuring isolation rules for secondary hub devices..."
+cat << 'EOF' > /etc/modprobe.d/blacklist_hub_net.conf
+blacklist cdc_ncm
+blacklist cdc_ether
+blacklist cdc_mbim
+blacklist cdc_wdm
+blacklist ax88179_178a
+EOF
+
+echo "[*] 4. Configuring USB autosuspend disable & hub channel isolation rules..."
+cat << 'EOF' > /etc/udev/rules.d/50-ath9k_htc.rules
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="0cf3", ATTR{idProduct}=="9271", ATTR{power/control}="on"
+EOF
+
 cat << 'EOF' > /etc/udev/rules.d/60-disable-hub-extra.rules
 ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="1d5c", ATTR{idProduct}=="7102", ATTR{authorized}="0"
 ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="0b95", ATTR{idProduct}=="1790", ATTR{authorized}="0"
@@ -56,18 +79,18 @@ EOF
 systemctl reload NetworkManager 2>/dev/null || true
 
 echo "[*] 6. Creating quick monitor mode control scripts..."
-cat << 'EOF' > /usr/local/bin/monitor-on
+cat << EOF > /usr/local/bin/monitor-on
 #!/bin/bash
 ip link set wlan1 down 2>/dev/null
-iw dev wlan1 set type monitor 2>/dev/null
+${IW_BIN} dev wlan1 set type monitor 2>/dev/null
 ip link set wlan1 up 2>/dev/null
 EOF
 chmod +x /usr/local/bin/monitor-on
 
-cat << 'EOF' > /usr/local/bin/monitor-off
+cat << EOF > /usr/local/bin/monitor-off
 #!/bin/bash
 ip link set wlan1 down 2>/dev/null
-iw dev wlan1 set type managed 2>/dev/null
+${IW_BIN} dev wlan1 set type managed 2>/dev/null
 ip link set wlan1 up 2>/dev/null
 EOF
 chmod +x /usr/local/bin/monitor-off
@@ -95,4 +118,3 @@ EOF
 udevadm control --reload-rules 2>/dev/null || true
 
 echo "[+] Setup successfully completed! Please reboot the Cardputer to apply the USB host changes."
-EOF

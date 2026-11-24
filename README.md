@@ -87,14 +87,19 @@ RemainAfterExit=yes
 WantedBy=basic.target
 ```
 
-### 2.3. Atheros Module Parameters (`/etc/modprobe.d/ath9k_htc.conf`)
-Disables aggressive power-saving sleep transitions (`ps_enable=0`), preventing firmware lockups during packet injection or interface state changes:
+### 2.3. Atheros Module Parameters (`/etc/modprobe.d/ath9k_htc.conf`) & USB Power
+Disables aggressive power-saving sleep transitions (`ps_enable=0`), preventing firmware lockups during packet injection or interface state changes (requires `htc_9271-1.4.0.fw` present in `/lib/firmware/ath9k_htc/`):
 ```text
 options ath9k_htc ps_enable=0
 ```
 
-### 2.4. Hub Channel Isolation (`/etc/udev/rules.d/60-disable-hub-extra.rules`)
-The UGREEN hub includes onboard Gigabit Ethernet (ASIX `0b95:1790`) and Billboard (`1d5c:7102`) chips that consume host channels on the SoC's 8-channel USB controller. This rule deauthorizes those extra endpoints so 100% of host channels are dedicated to the AR9271:
+To prevent the Linux kernel from suspending the adapter, USB autosuspend is also disabled via `/etc/udev/rules.d/50-ath9k_htc.rules`:
+```udev
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="0cf3", ATTR{idProduct}=="9271", ATTR{power/control}="on"
+```
+
+### 2.4. Hub Channel Isolation (`/etc/udev/rules.d/60-disable-hub-extra.rules` & Driver Blacklist)
+The UGREEN hub includes onboard Gigabit Ethernet (ASIX `0b95:1790`) and Billboard (`1d5c:7102`) chips that consume host channels on the SoC's 8-channel USB controller. This rule deauthorizes those extra endpoints (paired with blacklisting `cdc_ncm`, `cdc_ether`, `cdc_mbim`, `cdc_wdm`, and `ax88179_178a` in `/etc/modprobe.d/blacklist_hub_net.conf`) so 100% of host channels are dedicated to the AR9271:
 ```udev
 ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="1d5c", ATTR{idProduct}=="7102", ATTR{authorized}="0"
 ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="0b95", ATTR{idProduct}=="1790", ATTR{authorized}="0"
@@ -124,7 +129,7 @@ Deploys `/etc/systemd/system/ath9k-monitor.service` and udev rule `/etc/udev/rul
   ```
 * **Check interface mode and transmission power:**
   ```bash
-  iw dev wlan1 info
+  sudo iw dev wlan1 info
   ```
 * **Real-time network reconnaissance (Aircrack suite):**
   ```bash

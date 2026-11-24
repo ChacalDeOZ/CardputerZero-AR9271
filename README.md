@@ -1,76 +1,76 @@
-# Atheros AR9271 (ath9k_htc) no M5Stack CardputerZero
+# Atheros AR9271 (ath9k_htc) on M5Stack CardputerZero
 
-Guia completo e script automatizado para fazer o adaptador Wi-Fi USB Atheros AR9271 funcionar no **M5Stack CardputerZero** (Raspberry Pi Compute Module 0 / BCM2837, Debian 13 Trixie, Kernel 6.x) com alimentação elétrica estável e inicialização automática em **Modo Monitor**.
+A comprehensive guide and automated setup script to run the **Qualcomm Atheros AR9271** USB Wi-Fi adapter on the **M5Stack CardputerZero** (Raspberry Pi Compute Module 0 / BCM2837, Debian 13 Trixie, Linux Kernel 6.x) with stable electrical power and automatic initialization into **Monitor Mode**.
 
 ---
 
-## ⚡ Instalação Rápida (One-Liner)
+## ⚡ Quick Start (One-Liner Installation)
 
-Se você já está com o Cardputer conectado à internet via Wi-Fi interno (`wlan0`), basta rodar no terminal do Cardputer:
+If your Cardputer is already connected to the internet via internal Wi-Fi (`wlan0`), execute this single command directly in the Cardputer terminal:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/ChacalDeOZ/CardputerZero-AR9271/main/setup_ar9271.sh | sudo bash
 ```
 
-Após o término da execução, reinicie o Cardputer:
+Once execution finishes, reboot the Cardputer:
 ```bash
 sudo reboot
 ```
 
 ---
 
-## 🔌 1. Hardware Utilizado e Topologia de Alimentação
+## 🔌 1. Tested Hardware & Power Topology
 
-O chip Atheros AR9271 consome picos de até **500mA a 5V** durante a calibração do rádio (RF PA). O circuito interno da bateria do Cardputer não suporta esse pico de corrente, causando queda de tensão e erro de timeout no barramento USB (`device descriptor read/64, error -110`).
+The Atheros AR9271 chipset consumes current spikes of up to **500mA at 5V** during radio frequency (RF PA) calibration. The Cardputer's internal battery and boost converter cannot sustain this sudden surge when plugged in directly, causing a voltage droop and a USB bus timeout error (`device descriptor read/64, error -110`).
 
-### 📡 1.1. Adaptador Wi-Fi Testado e Homologado:
-* **Modelo Oficial:** [Adaptador Wi-Fi USB Atheros AR9271 10dBi Pentest (Mercado Livre)](https://www.mercadolivre.com.br/adaptador-wi-fi-usb-atheros-ar9271-10dbi-pentest-kali-linux/p/MLB2093400683)
-* **Chipset:** Qualcomm Atheros Communications AR9271 (USB ID: `0cf3:9271`)
-* **Driver Linux:** `ath9k_htc` (Firmware: `htc_9271-1.4.0.fw`)
-* **Antena:** 10 dBi destacável com alto ganho
-* **Recursos:** Suporte nativo a Modo Monitor (Monitor Mode) e Injeção de Pacotes (Packet Injection)
+### 📡 1.1. Tested & Verified Wi-Fi Adapter:
+* **Product:** [Atheros AR9271 10dBi High-Gain USB Wi-Fi Adapter](https://www.mercadolivre.com.br/adaptador-wi-fi-usb-atheros-ar9271-10dbi-pentest-kali-linux/p/MLB2093400683)
+* **Chipset:** Qualcomm Atheros AR9271 (USB ID: `0cf3:9271`)
+* **Linux Driver:** `ath9k_htc` (Firmware: `htc_9271-1.4.0.fw`)
+* **Antenna:** Detachable 10 dBi high-gain omnidirectional antenna
+* **Capabilities:** Native Monitor Mode, Packet Injection, and AP Mode
 
-### 📦 1.2. Hub USB Testado e Homologado:
-* **Modelo Oficial:** [UGREEN Hub USB-C 5 em 1 - Modelo 10919 (Amazon)](https://www.amazon.com.br/dp/B08HZ1GGH9)
-* **Portas do Hub:**
-  * 1x Porta USB-C com suporte a **Power Delivery (PD 100W)** *(entrada de energia)*
-  * 2x Portas USB-A 3.0 *(dados e alimentação para a placa Atheros)*
-  * 1x Porta Gigabit Ethernet RJ45 (1000 Mbps)
-  * 1x Porta HDMI 4K @ 60Hz
-* **Chips Internos Identificados pelo Sistema:**
-  * Controlador USB Hub: Genesys Logic USB 2.1 Hub (`05e3:0610`)
-  * Controlador Power Delivery / Billboard: Fresco Logic FL7102 (`1d5c:7102`)
-  * Controlador Gigabit Ethernet: ASIX AX88179A (`0b95:1790`)
+### 📦 1.2. Tested & Verified USB Hub:
+* **Product:** [UGREEN 5-in-1 USB-C Hub - Model 10919 (Amazon)](https://www.amazon.com.br/dp/B08HZ1GGH9)
+* **Ports:**
+  * 1x USB-C Power Delivery input port (**PD 100W**) *(power input)*
+  * 2x USB-A 3.0 ports *(data and power pass-through to Atheros adapter)*
+  * 1x Gigabit Ethernet RJ45 port (1000 Mbps)
+  * 1x HDMI 4K @ 60Hz port
+* **Internal Chipsets Identified by System:**
+  * USB Hub Controller: Genesys Logic USB 2.1 Hub (`05e3:0610`)
+  * Power Delivery / Billboard Controller: Fresco Logic FL7102 (`1d5c:7102`)
+  * Gigabit Ethernet Controller: ASIX AX88179A (`0b95:1790`)
 
 > [!NOTE]
-> Outros modelos de hubs USB-C multiportas alimentados também funcionarão, desde que possuam entrada USB-C Power Delivery e que a regra de isolamento de canais da Seção 2.4 esteja ativa para evitar concorrência no barramento.
+> Other powered USB-C multiport hubs will also work, provided they feature a dedicated USB-C Power Delivery input port and that the USB channel isolation rule (Section 2.4) is enabled to prevent host channel starvation.
 
 ---
 
-### 🔌 1.3. Ordem de Conexão Física (Obrigatória):
-1. Conecte um carregador USB-C na porta de alimentação (**PD**) do hub UGREEN.
-2. Conecte o adaptador **Atheros AR9271** em uma das portas USB-A do hub.
-3. Conecte o cabo do hub na porta USB do **Cardputer**.
+### 🔌 1.3. Connection Sequence (Mandatory):
+1. Connect a USB-C charger to the **PD power input port** of the UGREEN hub.
+2. Plug the **Atheros AR9271** adapter into one of the USB-A ports on the hub.
+3. Plug the hub's host cable into the USB port of the **Cardputer**.
 
 > [!IMPORTANT]
-> O carregador USB-C precisa estar conectado ao hub para suprir a energia necessária. Sem alimentação externa no hub, o chip reinicia por subtensão (brownout).
+> The USB-C charger must remain connected to the hub's PD port to deliver continuous, clean 5V power. Operating without external power causes brownouts during RF calibration.
 
 ---
 
-## 🛠️ 2. O que o Script Configura no Sistema
+## 🛠️ 2. System Configurations Explained
 
-Caso prefira fazer manualmente, estas são todas as alterações necessárias:
+For manual setup or reference, here is the full breakdown of all required system modifications:
 
-### 2.1. Driver USB Nativo do Raspberry Pi (`/boot/firmware/config.txt`)
-A imagem padrão ativa o driver genérico `dwc2`, que falha com transações divididas (*split-transactions*) em hubs cascateados, gerando o erro fatal `dwc2_hc_halt() Channel can't be halted`.
-* **Solução:** Comentar a linha no `/boot/firmware/config.txt`:
+### 2.1. Native Raspberry Pi USB Host Driver (`/boot/firmware/config.txt`)
+The default OS image loads the generic `dwc2` driver, which lacks hardware FIQ acceleration and fails on split transactions across cascaded hubs, resulting in fatal channel lockups: `dwc2_hc_halt() Channel can't be halted`.
+* **Fix:** Disable `dwc2` in `/boot/firmware/config.txt` by commenting it out:
   ```ini
   #dtoverlay=dwc2
   ```
-  Isso faz o kernel carregar o driver nativo **`dwc_otg`** do Raspberry Pi, que possui aceleração por hardware **FIQ** e FSM de split-transactions.
+  This instructs the kernel to load the native Raspberry Pi **`dwc_otg`** host driver, which features **hardware FIQ acceleration** and a split-transaction finite state machine (FSM).
 
-### 2.2. Trilho de 5V Contínuo (`/etc/systemd/system/ext5v.service`)
-Garante que a saída do conversor boost de 5V da porta do Cardputer fique no nível máximo (255) em todo boot:
+### 2.2. Continuous 5V Boost Rail (`/etc/systemd/system/ext5v.service`)
+Ensures the Cardputer's external boost regulator is persistently set to maximum output (255) on boot:
 ```ini
 [Unit]
 Description=Enable 5V Boost Rail on USB/Grove
@@ -87,51 +87,55 @@ RemainAfterExit=yes
 WantedBy=basic.target
 ```
 
-### 2.3. Parâmetros do Módulo Atheros (`/etc/modprobe.d/ath9k_htc.conf`)
-Desativa a suspensão de energia agressiva do chip (`ps_enable=0`), impedindo que o firmware durma durante a injeção ou captura de pacotes:
+### 2.3. Atheros Module Parameters (`/etc/modprobe.d/ath9k_htc.conf`)
+Disables aggressive power-saving sleep transitions (`ps_enable=0`), preventing firmware lockups during packet injection or interface state changes:
 ```text
 options ath9k_htc ps_enable=0
 ```
 
-### 2.4. Isolamento de Conflito de Canais do Hub (`/etc/udev/rules.d/60-disable-hub-extra.rules`)
-O hub UGREEN possui chips internos Gigabit Ethernet (ASIX `0b95:1790`) e Billboard (`1d5c:7102`) que saturam os 8 canais de hardware do SoC. Esta regra desautoriza esses chips extras para dedicar 100% dos canais USB à placa Atheros:
+### 2.4. Hub Channel Isolation (`/etc/udev/rules.d/60-disable-hub-extra.rules`)
+The UGREEN hub includes onboard Gigabit Ethernet (ASIX `0b95:1790`) and Billboard (`1d5c:7102`) chips that consume host channels on the SoC's 8-channel USB controller. This rule deauthorizes those extra endpoints so 100% of host channels are dedicated to the AR9271:
 ```udev
 ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="1d5c", ATTR{idProduct}=="7102", ATTR{authorized}="0"
 ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="0b95", ATTR{idProduct}=="1790", ATTR{authorized}="0"
 ```
 
-### 2.5. Prevenção de Conflito com NetworkManager (`/etc/NetworkManager/conf.d/99-unmanaged-wlan1.conf`)
-Impede que o NetworkManager escaneie redes na `wlan1`, o que travava o kernel (`rtnl_lock`) ao ativar o modo monitor:
+### 2.5. NetworkManager Conflict Prevention (`/etc/NetworkManager/conf.d/99-unmanaged-wlan1.conf`)
+Prevents NetworkManager from attempting to scan on `wlan1`, which otherwise acquires `rtnl_lock` and freezes network operations when entering monitor mode:
 ```ini
 [keyfile]
 unmanaged-devices=interface-name:wlan1
 ```
 
-### 2.6. Automação do Modo Monitor (Boot & Hotplug)
-Cria o serviço `/etc/systemd/system/ath9k-monitor.service` e a regra de udev `/etc/udev/rules.d/70-ath9k-monitor.rules` para colocar a interface `wlan1` em **Modo Monitor automaticamente** toda vez que for conectada ou que o sistema iniciar.
+### 2.6. Automated Monitor Mode (Boot & Hotplug)
+Deploys `/etc/systemd/system/ath9k-monitor.service` and udev rule `/etc/udev/rules.d/70-ath9k-monitor.rules` to automatically bring `wlan1` into **Monitor Mode** whenever the adapter is attached or the device boots.
 
 ---
 
-## 🎮 3. Comandos Úteis
+## 🎮 3. Useful Commands
 
-* **Ativar Modo Monitor manualmente:**
+* **Enable Monitor Mode manually:**
   ```bash
   sudo monitor-on
   ```
-* **Desativar Modo Monitor (voltar para modo cliente normal):**
+* **Disable Monitor Mode (switch back to managed/client mode):**
   ```bash
   sudo monitor-off
   ```
-* **Escanear redes com salto de canais (Aircrack suite):**
+* **Check interface mode and transmission power:**
+  ```bash
+  iw dev wlan1 info
+  ```
+* **Real-time network reconnaissance (Aircrack suite):**
   ```bash
   sudo airodump-ng wlan1
   ```
-* **Captura direta de pacotes brutos (RadioTap / 802.11):**
+* **Raw 802.11 / RadioTap frame capture:**
   ```bash
   sudo tcpdump -i wlan1 -c 10 -n -e
   ```
 
 ---
 
-## 📜 Licença
-Distribuído sob a licença MIT.
+## 📜 License
+Released under the [MIT License](LICENSE).
